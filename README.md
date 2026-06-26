@@ -9,7 +9,10 @@ The plugin adds four wearable wool items:
 - `Wool Trousers`
 - `Wool Boots`
 
-It also adds `Woven Saddle`, a normal saddle with a custom name.
+It also adds:
+
+- `Woven Saddle`, a normal saddle with a custom name
+- `Woven Sac`, a normal bundle with a custom name
 
 Each item uses the same recipe geometry as the matching leather armor piece.
 Recipes are registered for all 16 wool colors, and every ingredient in a single
@@ -25,11 +28,23 @@ The woven saddle recipe unlocks when a player receives honeycomb or receives a
 `Woven Saddle`. Players who already have either item in their inventory also get
 the recipe when they join or when the plugin is enabled.
 
+The woven sac recipe unlocks when a player receives wool or receives a
+`Woven Sac`. Players who already have either item in their inventory also get the
+recipe when they join or when the plugin is enabled.
+
 The woven saddle recipe is:
 
 ```text
 Honeycomb  Honeycomb  Honeycomb
 Wool       Any Slab   Wool
+```
+
+The woven sac recipe is:
+
+```text
+String  Wool  String
+Wool          Wool
+Wool    Wool  Wool
 ```
 
 ## Build
