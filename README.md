@@ -47,6 +47,21 @@ Wool          Wool
 Wool    Wool  Wool
 ```
 
+## Tailors
+
+Leatherworker villagers are treated as tailors by this plugin. Existing loaded
+leatherworkers, newly spawned leatherworkers, and leatherworkers loaded with
+chunks are given the visible custom name `Tailor`, and their trades are rewritten
+when possible:
+
+- leather purchases become string purchases
+- rabbit hide purchases become `Woven Sac` sales for 16-24 emeralds
+- saddle sales become `Woven Saddle` sales
+- leather armor sales become the matching wool wear item
+
+The vanilla profession label in the client trade UI still comes from Minecraft's
+language files; changing that label globally would require a resource pack.
+
 ## Build
 
 ```bash
