@@ -59,7 +59,7 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
         registerRecipes();
         getServer().getPluginManager().registerEvents(this, this);
         discoverRecipesForOnlinePlayers();
-        updateLoadedTailors();
+        updateLoadedTradeVillagers();
         getLogger().info("Enabled. Registered wool crafting recipes and recipe book unlocks.");
     }
 
@@ -117,24 +117,24 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onEntitySpawn(EntitySpawnEvent event) {
         if (event.getEntity() instanceof Villager villager) {
-            getServer().getScheduler().runTask(this, () -> updateTailor(villager));
+            getServer().getScheduler().runTask(this, () -> updateTradeVillager(villager));
         }
     }
 
     @EventHandler
     public void onVillagerCareerChange(VillagerCareerChangeEvent event) {
-        if (event.getProfession() == Villager.Profession.LEATHERWORKER) {
-            getServer().getScheduler().runTask(this, () -> updateTailor(event.getEntity()));
+        if (isManagedTradeProfession(event.getProfession())) {
+            getServer().getScheduler().runTask(this, () -> updateTradeVillager(event.getEntity()));
         }
     }
 
     @EventHandler
     public void onVillagerAcquireTrade(VillagerAcquireTradeEvent event) {
-        if (!(event.getEntity() instanceof Villager villager) || !isTailor(villager)) {
+        if (!(event.getEntity() instanceof Villager villager) || !isManagedTradeVillager(villager)) {
             return;
         }
 
-        MerchantRecipe replacement = rewriteTailorRecipe(event.getRecipe());
+        MerchantRecipe replacement = rewriteVillagerRecipe(villager, event.getRecipe());
         if (replacement != null) {
             event.setRecipe(replacement);
         }
@@ -144,7 +144,7 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
     public void onChunkLoad(ChunkLoadEvent event) {
         for (Entity entity : event.getChunk().getEntities()) {
             if (entity instanceof Villager villager) {
-                updateTailor(villager);
+                updateTradeVillager(villager);
             }
         }
     }
@@ -215,6 +215,11 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
 
     @SuppressWarnings("deprecation")
     private ItemStack createWoolWear(WoolWearPiece piece, WoolColor color) {
+        return createWoolWear(piece, color, piece.displayName());
+    }
+
+    @SuppressWarnings("deprecation")
+    private ItemStack createWoolWear(WoolWearPiece piece, WoolColor color, String displayName) {
         ItemStack item = new ItemStack(piece.material());
         ItemMeta baseMeta = item.getItemMeta();
         if (!(baseMeta instanceof LeatherArmorMeta meta)) {
@@ -222,7 +227,7 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
         }
 
         meta.setColor(color.dyeColor().getColor());
-        meta.itemName(Component.text(piece.displayName()));
+        meta.itemName(Component.text(displayName));
         meta.setUnbreakable(true);
         meta.setAttributeModifiers(ImmutableMultimap.<Attribute, AttributeModifier>of());
         meta.addItemFlags(
@@ -238,16 +243,16 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
         return item;
     }
 
-    private void updateLoadedTailors() {
+    private void updateLoadedTradeVillagers() {
         for (World world : getServer().getWorlds()) {
             for (Villager villager : world.getEntitiesByClass(Villager.class)) {
-                updateTailor(villager);
+                updateTradeVillager(villager);
             }
         }
     }
 
-    private void updateTailor(Villager villager) {
-        if (!isTailor(villager)) {
+    private void updateTradeVillager(Villager villager) {
+        if (!isManagedTradeVillager(villager)) {
             return;
         }
 
@@ -257,7 +262,7 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
         List<MerchantRecipe> recipes = villager.getRecipes();
         boolean changed = false;
         for (int index = 0; index < recipes.size(); index++) {
-            MerchantRecipe replacement = rewriteTailorRecipe(recipes.get(index));
+            MerchantRecipe replacement = rewriteVillagerRecipe(villager, recipes.get(index));
             if (replacement != null) {
                 recipes.set(index, replacement);
                 changed = true;
@@ -269,11 +274,25 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    private boolean isTailor(Villager villager) {
-        return villager.getProfession() == Villager.Profession.LEATHERWORKER;
+    private boolean isManagedTradeVillager(Villager villager) {
+        return isManagedTradeProfession(villager.getProfession());
     }
 
-    private MerchantRecipe rewriteTailorRecipe(MerchantRecipe recipe) {
+    private boolean isManagedTradeProfession(Villager.Profession profession) {
+        return profession == Villager.Profession.LEATHERWORKER || profession == Villager.Profession.SHEPHERD;
+    }
+
+    private MerchantRecipe rewriteVillagerRecipe(Villager villager, MerchantRecipe recipe) {
+        if (villager.getProfession() == Villager.Profession.SHEPHERD) {
+            return rewriteShepherdRecipe(recipe);
+        }
+        if (villager.getProfession() == Villager.Profession.LEATHERWORKER) {
+            return rewriteLeatherworkerRecipe(recipe);
+        }
+        return null;
+    }
+
+    private MerchantRecipe rewriteLeatherworkerRecipe(MerchantRecipe recipe) {
         if (isRabbitHidePurchase(recipe)) {
             return createWovenSacTrade(recipe);
         }
@@ -300,6 +319,25 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
             return replacement;
         }
 
+        return null;
+    }
+
+    private MerchantRecipe rewriteShepherdRecipe(MerchantRecipe recipe) {
+        if (hasStringTag(recipe.getResult(), woolWearPieceKey)) {
+            return null;
+        }
+        if (isColoredWoolSale(recipe)) {
+            return createClothGearTrade(recipe, WoolWearPiece.BOOTS, "Cloth Boots");
+        }
+        if (isColoredCarpetSale(recipe)) {
+            return createClothGearTrade(recipe, WoolWearPiece.CAP, "Cloth Cap");
+        }
+        if (isColoredBedSale(recipe)) {
+            return createClothGearTrade(recipe, WoolWearPiece.JACKET, "Cloth Vest");
+        }
+        if (isMapMarkerSale(recipe)) {
+            return createClothGearTrade(recipe, WoolWearPiece.TROUSERS, "Cloth Leggings");
+        }
         return null;
     }
 
@@ -339,6 +377,36 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
 
     private int randomWovenSacPrice() {
         return ThreadLocalRandom.current().nextInt(16, 25);
+    }
+
+    private MerchantRecipe createClothGearTrade(MerchantRecipe original, WoolWearPiece piece, String displayName) {
+        MerchantRecipe replacement = copyRecipeWithResult(original, createWoolWear(piece, WoolColor.WHITE, displayName));
+        replacement.setIngredients(List.of(new ItemStack(Material.EMERALD, randomClothGearPrice())));
+        return replacement;
+    }
+
+    private int randomClothGearPrice() {
+        return ThreadLocalRandom.current().nextInt(12, 25);
+    }
+
+    private boolean isColoredWoolSale(MerchantRecipe recipe) {
+        return isSale(recipe) && isWool(recipe.getResult().getType());
+    }
+
+    private boolean isColoredCarpetSale(MerchantRecipe recipe) {
+        return isSale(recipe) && recipe.getResult().getType().name().endsWith("_CARPET");
+    }
+
+    private boolean isColoredBedSale(MerchantRecipe recipe) {
+        return isSale(recipe) && recipe.getResult().getType().name().endsWith("_BED");
+    }
+
+    private boolean isMapMarkerSale(MerchantRecipe recipe) {
+        return isSale(recipe) && recipe.getResult().getType().name().endsWith("_BANNER");
+    }
+
+    private boolean isSale(MerchantRecipe recipe) {
+        return recipe.getResult().getType() != Material.EMERALD;
     }
 
     private boolean isSaddleSale(MerchantRecipe recipe) {
