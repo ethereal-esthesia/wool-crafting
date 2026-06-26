@@ -15,6 +15,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
@@ -30,16 +31,18 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
     private final List<NamespacedKey> recipeKeys = new ArrayList<>();
     private NamespacedKey woolWearPieceKey;
     private NamespacedKey woolWearColorKey;
+    private NamespacedKey wovenSaddleKey;
 
     @Override
     public void onEnable() {
         woolWearPieceKey = new NamespacedKey(this, "wool_wear_piece");
         woolWearColorKey = new NamespacedKey(this, "wool_wear_color");
+        wovenSaddleKey = new NamespacedKey(this, "woven_saddle");
 
         registerRecipes();
         getServer().getPluginManager().registerEvents(this, this);
         discoverRecipesForOnlinePlayers();
-        getLogger().info("Enabled. Registered wool wear crafting recipes and recipe book unlocks.");
+        getLogger().info("Enabled. Registered wool crafting recipes and recipe book unlocks.");
     }
 
     @Override
@@ -70,6 +73,7 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
             }
         }
 
+        registerWovenSaddleRecipe();
         getServer().updateRecipes();
     }
 
@@ -113,6 +117,53 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
 
         item.setItemMeta(meta);
         return item;
+    }
+
+    private void registerWovenSaddleRecipe() {
+        NamespacedKey key = new NamespacedKey(this, "woven_saddle");
+        ShapedRecipe recipe = new ShapedRecipe(key, createWovenSaddle());
+        recipe.shape(
+            "HHH",
+            "WSW"
+        );
+        recipe.setGroup("woven_saddle");
+        recipe.setCategory(CraftingBookCategory.EQUIPMENT);
+        recipe.setIngredient('H', Material.HONEYCOMB);
+        recipe.setIngredient('W', new RecipeChoice.MaterialChoice(woolMaterials()));
+        recipe.setIngredient('S', new RecipeChoice.MaterialChoice(slabMaterials()));
+        getServer().addRecipe(recipe);
+        recipeKeys.add(key);
+    }
+
+    private ItemStack createWovenSaddle() {
+        ItemStack item = new ItemStack(Material.SADDLE);
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            throw new IllegalStateException("SADDLE did not provide item metadata");
+        }
+
+        meta.itemName(Component.text("Woven Saddle"));
+        meta.getPersistentDataContainer().set(wovenSaddleKey, PersistentDataType.BOOLEAN, true);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private List<Material> woolMaterials() {
+        List<Material> materials = new ArrayList<>();
+        for (WoolColor color : WoolColor.values()) {
+            materials.add(color.woolMaterial());
+        }
+        return materials;
+    }
+
+    private List<Material> slabMaterials() {
+        List<Material> materials = new ArrayList<>();
+        for (Material material : Material.values()) {
+            if (material.isItem() && material.name().endsWith("_SLAB")) {
+                materials.add(material);
+            }
+        }
+        return materials;
     }
 
     private enum WoolWearPiece {
