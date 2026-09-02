@@ -33,6 +33,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 
 public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
 
@@ -191,10 +192,17 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
         villager.customName(Component.text("Tailor"));
         villager.setCustomNameVisible(true);
 
-        List<MerchantRecipe> recipes = villager.getRecipes();
+        rewriteRecipes(villager, recipe -> rewriteVillagerRecipe(villager, recipe));
+    }
+
+    static boolean rewriteRecipes(
+        Villager villager,
+        Function<MerchantRecipe, MerchantRecipe> rewriter
+    ) {
+        List<MerchantRecipe> recipes = new ArrayList<>(villager.getRecipes());
         boolean changed = false;
         for (int index = 0; index < recipes.size(); index++) {
-            MerchantRecipe replacement = rewriteVillagerRecipe(villager, recipes.get(index));
+            MerchantRecipe replacement = rewriter.apply(recipes.get(index));
             if (replacement != null) {
                 recipes.set(index, replacement);
                 changed = true;
@@ -204,6 +212,7 @@ public final class WoolCraftingPlugin extends JavaPlugin implements Listener {
         if (changed) {
             villager.setRecipes(recipes);
         }
+        return changed;
     }
 
     private boolean isManagedTradeVillager(Villager villager) {

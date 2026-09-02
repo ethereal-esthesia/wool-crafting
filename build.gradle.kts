@@ -17,6 +17,12 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:$paperApiDependencyVersion")
+
+    testImplementation("io.papermc.paper:paper-api:$paperApiDependencyVersion")
+    testImplementation(platform("org.junit:junit-bom:5.13.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito:mockito-core:5.19.0")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 java {
@@ -25,6 +31,10 @@ java {
 }
 
 tasks {
+    test {
+        useJUnitPlatform()
+    }
+
     withType<JavaCompile>().configureEach {
         options.release.set(25)
     }
